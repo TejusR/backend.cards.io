@@ -1,9 +1,9 @@
 import { Deck, Player, Game } from '../../engine'
 import { GameService, PlayerService } from '../../services'
 
-var testLit = async () => {
+var testAce = async () => {
 	let po = await Player.build('Nandha', 2)
-	let hostedGame = await hostGame(po)
+	let hostedGame = await hostGame(po, 2)
 	var p1 = await Player.build('Naven', 3)
 	await hostedGame.addPlayer(p1)
 	var p2 = await Player.build('Vivek', 1)
@@ -28,12 +28,12 @@ var registerPlayer = async (id: string, name: string, pos: number) => {
 	return player
 }
 
-var hostGame = async (owner: Player) => {
-	const gameType = 'literature'
-	const deck = new Deck()
-	const minPlayers = 6
+var hostGame = async (owner: Player, deckCount: number = 1) => {
+	const gameType = 'ace'
+	const deck = new Deck(true, deckCount)
+	const minPlayers = 4
 	const maxPlayers = 8
-	const isTeamGame = true
+	const isTeamGame = false
 
 	let g = await Game.build(
 		gameType,
@@ -44,30 +44,19 @@ var hostGame = async (owner: Player) => {
 		owner
 	)
 	g.decideStarter = function () {
-		this._currentTurn = 1
+		this._players.forEach((player) => {
+			if (player.getIndexOf('AS') !== -1)
+				this._currentTurn = player.position
+		})
 	}
 	g.isGameOver = function () {
+		let count = 0
 		for (let i = 0; i < this._players.length; i++) {
-			if (this._players[i].hand.length > 0) return false
+			if (this._players[i].hand.length)
+				if (count) return false
+				else count++
 		}
 		return true
-	}
-	g.processRound = function () {
-		if (this._isGameOver()) this.end()
-		else {
-			let isEvenDone = true,
-				isOddDone = true
-			for (let i = 0; i < this._players.length; i++) {
-				let current = this._players[i]
-				if (current.position % 2 == 0) {
-					isEvenDone = isEvenDone && current.hand.length === 0
-				} else {
-					isOddDone = isOddDone && current.hand.length === 0
-				}
-			}
-			if (isEvenDone) this.currentTurn = 1
-			else if (isOddDone) this.currentTurn = 2
-		}
 	}
 	g.activePlayers = function () {
 		let activePlayers = []
@@ -76,21 +65,26 @@ var hostGame = async (owner: Player) => {
 		})
 		return activePlayers
 	}
+	g.processRound = function () {
+		let activePlayers = this._activePlayers()
+		if (this._pile.length === activePlayers.length) this.discardPile()
+		else {
+			let highestCard = '0S',
+				position = -1,
+				splitPileLength = this._pile.length - 1
+			this._pile.splice(0, -1).forEach((card, index) => {
+				if (compareCards(card, highestCard)) {
+					let activePlayerPosition =
+						(this._currentTurn -
+							(splitPileLength - index) +
+							activePlayers.length) %
+						activePlayers.length
+					position = activePlayers[activePlayerPosition].position
+				}
+			})
+		}
+	}
 	g.log('CREATE:' + owner.name)
-	var p1 = await Player.build('Nandha', 2)
-	joinGame(g, p1)
-	var p2 = await Player.build('Vivek', 3)
-	joinGame(g, p2)
-	var p1 = await Player.build('Bharath', 4)
-	joinGame(g, p1)
-	var p2 = await Player.build('Shohan', 5)
-	joinGame(g, p2)
-	var p1 = await Player.build('Tejus', 6)
-	joinGame(g, p1)
-	var p1 = await Player.build('Vikram', 7)
-	joinGame(g, p1)
-	var p1 = await Player.build('Sriram', 8)
-	joinGame(g, p1)
 	return g
 }
 
@@ -165,6 +159,32 @@ var declareSet = (
 	}
 	game.processRound()
 }
+
+var compareCards = (cardA, cardB) => {
+	var valueA = getCardValue(cardA.slice(0, -1))
+	var valueB = getCardValue(cardB.slice(0, -1))
+
+	if (valueA >= valueB) return 1
+	else return 0
+}
+
+var getCardValue = (rank) => {
+	if (!isNaN(rank)) return parseInt(rank)
+	else
+		switch (rank) {
+			case 'A':
+				return 14
+			case 'J':
+				return 11
+			case 'Q':
+				return 12
+			case 'K':
+				return 13
+			default:
+				return 0
+		}
+}
+
 export {
 	handleReconnect,
 	registerPlayer,

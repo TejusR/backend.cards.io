@@ -227,6 +227,7 @@ var openSocketChannels = (): void => {
 
 			try {
 				let game = getGameData(gameCode)
+				console.log(game.players)
 				let player = game.getPlayerById(playerId)
 
 				Validator.isOwner(game, player)
@@ -247,6 +248,7 @@ var openSocketChannels = (): void => {
 		})
 
 		socket.on('play-ask', (data) => {
+			console.log(data)
 			let card = data.card
 			let gameCode = data.code
 
